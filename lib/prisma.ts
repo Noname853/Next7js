@@ -11,7 +11,7 @@ const url = `file:${absoluteDbPath}`
 export const prisma =
   globalForPrisma.prisma ||
   new PrismaClient({
-    adapter: async () => new PrismaLibSql({ url }),
+    adapter: new PrismaLibSql({ url }),
   })
 
 if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = prisma
