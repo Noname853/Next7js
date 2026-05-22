@@ -4,9 +4,14 @@ import { prisma } from '@/lib/prisma'
 import bcrypt from 'bcryptjs'
 import { z } from 'zod'
 
+const authSecret = process.env.AUTH_SECRET
+if (!authSecret) {
+  throw new Error('AUTH_SECRET environment variable is required')
+}
+
 export const { handlers, auth, signIn, signOut } = NextAuth({
   trustHost: true,
-  secret: process.env.AUTH_SECRET ?? 'iventaris-tkj-secret-key-2026-super-secret',
+  secret: authSecret,
   providers: [
     Credentials({
       credentials: {
