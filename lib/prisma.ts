@@ -8,7 +8,7 @@ const url = process.env.DATABASE_URL ?? 'file:./dev.db'
 export const prisma =
   globalForPrisma.prisma ||
   new PrismaClient({
-    adapter: () => new PrismaLibSql({ url }),
+    adapter: async () => new PrismaLibSql({ url }),
   })
 
 if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = prisma
