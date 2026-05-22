@@ -3,7 +3,7 @@ import { PrismaLibSql } from '@prisma/adapter-libsql'
 import bcrypt from 'bcryptjs'
 
 const prisma = new PrismaClient({
-  adapter: () => new PrismaLibSql({ url: 'file:./dev.db' }),
+  adapter: async () => new PrismaLibSql({ url: 'file:./dev.db' }),
 })
 
 async function main() {
