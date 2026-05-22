@@ -194,13 +194,14 @@ export default async function ImportAlatPage({
                 <Upload className="h-4 w-4" />
                 Upload & Import
               </button>
-              <a
+              <Link
                 href="/api/alat/template"
+                prefetch={false}
                 className="flex items-center gap-2 rounded-lg border border-neutral-700 px-5 py-2.5 text-sm text-neutral-300 transition hover:border-neutral-600 hover:text-white"
               >
                 <Download className="h-4 w-4" />
                 Download Template
-              </a>
+              </Link>
             </div>
           </form>
         </GlassCard>

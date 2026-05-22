@@ -62,11 +62,10 @@ export default function BuatPeminjamanPage() {
   const [searchResults, setSearchResults] = useState<AlatOption[]>([])
   const [searchIdx, setSearchIdx] = useState<number | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
-  const [statusWaktu, setStatusWaktu] = useState<ReturnType<typeof cekJamOperasional> | null>(null)
+  const [statusWaktu, setStatusWaktu] = useState<ReturnType<typeof cekJamOperasional> | null>(() => cekJamOperasional())
   const [kelompok, setKelompok] = useState<KelompokInfo | null>(null)
 
   useEffect(() => {
-    setStatusWaktu(cekJamOperasional())
     const interval = setInterval(() => setStatusWaktu(cekJamOperasional()), 60_000)
     return () => clearInterval(interval)
   }, [])
@@ -80,8 +79,11 @@ export default function BuatPeminjamanPage() {
   }, [])
 
   useEffect(() => {
-    if (!searchQuery) { setSearchResults([]); return }
     const t = setTimeout(async () => {
+      if (!searchQuery) {
+        setSearchResults([])
+        return
+      }
       const res = await fetch(`/api/alat?search=${encodeURIComponent(searchQuery)}&limit=10`)
       const data = await res.json()
       setSearchResults(data.data ?? [])

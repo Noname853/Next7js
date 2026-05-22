@@ -4,7 +4,7 @@ import { notFound } from 'next/navigation'
 import { GlassCard } from '@/components/shared/GlassCard'
 import { StatusBadge } from '@/components/shared/StatusBadge'
 import { formatDate, formatDateTime } from '@/lib/utils'
-import { ArrowLeft, Package, User, Calendar, FileText } from 'lucide-react'
+import { ArrowLeft, Package, User, FileText } from 'lucide-react'
 import Link from 'next/link'
 import { PeminjamanActions } from './PeminjamanActions'
 
