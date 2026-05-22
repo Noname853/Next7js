@@ -7,7 +7,7 @@ const absoluteDbPath = path.resolve(process.cwd(), 'dev.db')
 const url = `file:${absoluteDbPath}`
 
 const prisma = new PrismaClient({
-  adapter: async () => new PrismaLibSql({ url }),
+  adapter: new PrismaLibSql({ url }),
 })
 
 async function main() {
