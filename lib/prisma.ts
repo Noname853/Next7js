@@ -1,14 +1,17 @@
+import path from 'node:path'
 import { PrismaClient } from '@/lib/generated/prisma/client'
-import { PrismaBetterSQLite3 } from '@prisma/adapter-better-sqlite3'
+import { PrismaLibSql } from '@prisma/adapter-libsql'
 
 const globalForPrisma = globalThis as unknown as { prisma: PrismaClient }
 
-const url = process.env.DATABASE_URL ?? 'file:./dev.db'
+const dbFile = (process.env.DATABASE_URL ?? 'file:./dev.db').replace(/^file:/, '')
+const absoluteDbPath = path.resolve(process.cwd(), dbFile)
+const url = `file:${absoluteDbPath}`
 
 export const prisma =
   globalForPrisma.prisma ||
   new PrismaClient({
-    adapter: async () => new PrismaBetterSQLite3({ url }),
+    adapter: async () => new PrismaLibSql({ url }),
   })
 
 if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = prisma
