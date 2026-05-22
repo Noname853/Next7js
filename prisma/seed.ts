@@ -1,9 +1,9 @@
 import { PrismaClient } from '../lib/generated/prisma/client'
-import { PrismaLibSql } from '@prisma/adapter-libsql'
+import { PrismaBetterSQLite3 } from '@prisma/adapter-better-sqlite3'
 import bcrypt from 'bcryptjs'
 
 const prisma = new PrismaClient({
-  adapter: async () => new PrismaLibSql({ url: 'file:./dev.db' }),
+  adapter: async () => new PrismaBetterSQLite3({ url: 'file:./dev.db' }),
 })
 
 async function main() {
