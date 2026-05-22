@@ -1,9 +1,13 @@
-import { PrismaClient } from '../app/generated/prisma/client'
+import path from 'node:path'
+import { PrismaClient } from '../lib/generated/prisma/client'
 import { PrismaLibSql } from '@prisma/adapter-libsql'
 import bcrypt from 'bcryptjs'
 
+const absoluteDbPath = path.resolve(process.cwd(), 'dev.db')
+const url = `file:${absoluteDbPath}`
+
 const prisma = new PrismaClient({
-  adapter: new PrismaLibSql({ url: 'file:./dev.db' }),
+  adapter: new PrismaLibSql({ url }),
 })
 
 async function main() {
