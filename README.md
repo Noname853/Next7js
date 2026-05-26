@@ -4,29 +4,30 @@ Aplikasi web untuk manajemen peminjaman alat di lab TKJ. Dibuat dengan Next.js 1
 
 ## Prasyarat
 
-- **Node.js 20+** (disarankan 22 atau 24)
-- **pnpm** — install sekali dengan: `npm install -g pnpm`
+- **Node.js 20+** (disarankan 22 atau 24) — sudah termasuk `npm`
 - **Git**
 
 Cek versi:
 ```bash
 node -v
-pnpm -v
+npm -v
 ```
+
+> Project ini memakai **npm** (lockfile `package-lock.json`). Jangan pakai pnpm/yarn agar lockfile tidak bentrok.
 
 ## Setup pertama kali
 
 ### 1. Clone repo
 
 ```bash
-git clone https://github.com/Noname853/Next.js.git
-cd Next.js
+git clone https://github.com/Noname853/Next7js.git
+cd Next7js
 ```
 
 ### 2. Install dependency
 
 ```bash
-pnpm install
+npm install
 ```
 
 ### 3. Buat file `.env`
@@ -51,14 +52,14 @@ NEXTAUTH_URL="http://localhost:3000"
 AUTH_SECRET="tempel_hasil_openssl_disini"
 ```
 
-> **Penting:** `AUTH_SECRET` **wajib** diisi. Tanpa nilai, aplikasi gagal start dengan error `AUTH_SECRET environment variable is required`.
+> **Penting:** `AUTH_SECRET` **wajib** diisi. Tanpa nilai, aplikasi gagal start dengan error `AUTH_SECRET environment variable is required`. Gunakan nilai **berbeda** untuk dev dan produksi, dan jangan pernah commit `.env`.
 
 ### 4. Setup database
 
 Sekali jalan saja — migrate + seed:
 
 ```bash
-pnpm run setup
+npm run setup
 ```
 
 Perintah ini akan:
@@ -69,7 +70,7 @@ Perintah ini akan:
 ### 5. Jalankan dev server
 
 ```bash
-pnpm dev
+npm run dev
 ```
 
 Buka http://localhost:3000
@@ -83,16 +84,35 @@ Buka http://localhost:3000
 | Siswa | siti@tkj.com    | siswa123   |
 | Siswa | ahmad@tkj.com   | siswa123   |
 
+> Kredensial di atas hanya untuk data seed/development. **Ganti password** ini sebelum dipakai di lingkungan nyata.
+
 ## Script yang tersedia
 
 ```bash
-pnpm dev      # jalankan dev server (port 3000)
-pnpm build    # build production
-pnpm start    # jalankan hasil build
-pnpm lint     # cek lint
-pnpm seed     # re-seed database (tidak menghapus, pakai upsert)
-pnpm run setup # migrate + seed (untuk setup pertama atau reset penuh)
+npm run dev        # jalankan dev server (port 3000)
+npm run build      # build production
+npm start          # jalankan hasil build
+npm run lint       # cek lint (ESLint)
+npm run typecheck  # cek tipe TypeScript (tsc --noEmit)
+npm test           # jalankan unit test sekali (Vitest)
+npm run test:watch # jalankan test dalam mode watch
+npm run seed       # re-seed database (pakai upsert, tidak menghapus)
+npm run setup      # migrate + seed (setup pertama atau reset penuh)
 ```
+
+## Testing & CI
+
+- **Unit test** memakai [Vitest](https://vitest.dev). File test diletakkan di samping kodenya (`*.test.ts`) atau di folder `__tests__/`. Jalankan dengan `npm test`.
+- **CI** (GitHub Actions, `.github/workflows/ci.yml`) berjalan otomatis di setiap push & pull request ke `main`, dengan tahap: `npm ci` → `lint` → `typecheck` → `test` → `build`.
+
+## Keamanan
+
+Beberapa pengamanan yang sudah diterapkan:
+
+- **Rate limiting** pada login (10 percobaan / 5 menit per IP) dan registrasi (5 / 10 menit per IP), diterapkan di server action maupun di callback `authorize` NextAuth sebagai pengaman menyeluruh.
+- **Validasi input** pada API route: ID rute divalidasi numerik, parameter pagination dibatasi (maks 100), dan `role` user dibatasi whitelist.
+- **Pembuatan peminjaman** memakai transaksi agar cek stok dan penyimpanan bersifat atomik (mencegah stok minus saat request bersamaan).
+- **Security headers** (`X-Frame-Options`, `X-Content-Type-Options`, `Referrer-Policy`, `Permissions-Policy`) di-set lewat `next.config.ts`.
 
 ## Reset database
 
@@ -100,7 +120,7 @@ Kalau database rusak / mau mulai dari nol:
 
 ```bash
 rm dev.db
-pnpm run setup
+npm run setup
 ```
 
 ## Troubleshooting
@@ -121,24 +141,31 @@ adapter: async () => new PrismaLibSql({ url })   // salah
 **Port 3000 sudah dipakai**
 Jalankan di port lain:
 ```bash
-pnpm dev -- --port 3001
+npm run dev -- --port 3001
 ```
 
 ## Struktur project
 
 ```
 app/                  # Next.js App Router (pages + API routes)
+  (auth)/             # halaman login & register
   (protected)/        # halaman yang butuh login
   api/                # endpoint REST
 components/           # komponen UI reusable
 lib/
   auth.ts             # konfigurasi NextAuth
   prisma.ts           # Prisma client singleton
+  rate-limit.ts       # rate limiter in-memory
+  utils.ts            # helper umum
   generated/prisma/   # client hasil generate (tidak di-commit)
 prisma/
   schema.prisma       # skema database
   migrations/         # history migration
   seed.ts             # data awal
+proxy.ts              # proxy/middleware (rename dari middleware.ts di Next 16)
+next.config.ts        # konfigurasi Next.js + security headers
+vitest.config.ts      # konfigurasi test
+.github/workflows/    # pipeline CI
 ```
 
 ## Stack
@@ -149,3 +176,4 @@ prisma/
 - **NextAuth v5 (beta)** dengan provider Credentials
 - **Tailwind CSS 4** + **Radix UI**
 - **TypeScript 5**
+- **Vitest** untuk unit testing
