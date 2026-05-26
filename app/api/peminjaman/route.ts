@@ -2,14 +2,16 @@ import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { NextRequest, NextResponse } from 'next/server'
 
+class StokError extends Error {}
+
 export async function GET(req: NextRequest) {
   const session = await auth()
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const { searchParams } = req.nextUrl
   const status = searchParams.get('status') ?? ''
-  const page = parseInt(searchParams.get('page') ?? '1')
-  const limit = parseInt(searchParams.get('limit') ?? '10')
+  const page = Math.max(1, parseInt(searchParams.get('page') ?? '1') || 1)
+  const limit = Math.min(100, Math.max(1, parseInt(searchParams.get('limit') ?? '10') || 10))
   const skip = (page - 1) * limit
   const isAdmin = session.user.role === 'admin'
   const userId = parseInt(session.user.id)
@@ -72,54 +74,60 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    for (const item of items) {
-      const alat = await prisma.alat.findUnique({
-        where: { id: item.alatId },
-        include: {
-          peminjamanDetails: {
-            where: { peminjaman: { status: { in: ['menunggu_verifikasi', 'dipinjam'] } } },
-            select: { jumlah: true },
-          },
-        },
-      })
-      if (!alat) return NextResponse.json({ error: `Alat ID ${item.alatId} tidak ditemukan` }, { status: 400 })
-
-      const dipinjam = alat.peminjamanDetails.reduce((sum, d) => sum + d.jumlah, 0)
-      const stokTersedia = alat.stok - dipinjam
-      if (stokTersedia < item.jumlah) {
-        return NextResponse.json({ error: `Stok ${alat.nama} tidak mencukupi (tersedia: ${stokTersedia})` }, { status: 400 })
-      }
-    }
-
     const totalItems = items.reduce((sum: number, i: { jumlah: number }) => sum + i.jumlah, 0)
 
-    const peminjaman = await prisma.peminjaman.create({
-      data: {
-        userId,
-        totalItems,
-        keperluan,
-        catatan: catatan ?? null,
-        tanggalPinjam: new Date(),
-        tanggalBatasKembali: tanggalBatasKembali ? new Date(tanggalBatasKembali) : null,
-        status: 'menunggu_verifikasi',
-        details: {
-          create: items.map((item: { alatId: number; jumlah: number; keterangan?: string }) => ({
-            alatId: item.alatId,
-            jumlah: item.jumlah,
-            keterangan: item.keterangan ?? null,
-          })),
+    // Stock check and create run in one transaction so concurrent requests
+    // cannot both pass the availability check and oversell the same alat.
+    const peminjaman = await prisma.$transaction(async (tx) => {
+      for (const item of items) {
+        const alat = await tx.alat.findUnique({
+          where: { id: item.alatId },
+          include: {
+            peminjamanDetails: {
+              where: { peminjaman: { status: { in: ['menunggu_verifikasi', 'dipinjam'] } } },
+              select: { jumlah: true },
+            },
+          },
+        })
+        if (!alat) throw new StokError(`Alat ID ${item.alatId} tidak ditemukan`)
+
+        const dipinjam = alat.peminjamanDetails.reduce((sum, d) => sum + d.jumlah, 0)
+        const stokTersedia = alat.stok - dipinjam
+        if (stokTersedia < item.jumlah) {
+          throw new StokError(`Stok ${alat.nama} tidak mencukupi (tersedia: ${stokTersedia})`)
+        }
+      }
+
+      return tx.peminjaman.create({
+        data: {
+          userId,
+          totalItems,
+          keperluan,
+          catatan: catatan ?? null,
+          tanggalPinjam: new Date(),
+          tanggalBatasKembali: tanggalBatasKembali ? new Date(tanggalBatasKembali) : null,
+          status: 'menunggu_verifikasi',
+          details: {
+            create: items.map((item: { alatId: number; jumlah: number; keterangan?: string }) => ({
+              alatId: item.alatId,
+              jumlah: item.jumlah,
+              keterangan: item.keterangan ?? null,
+            })),
+          },
         },
-      },
-      include: {
-        details: { include: { alat: true } },
-        user: { select: { id: true, name: true } },
-      },
+        include: {
+          details: { include: { alat: true } },
+          user: { select: { id: true, name: true } },
+        },
+      })
     })
 
     return NextResponse.json(peminjaman, { status: 201 })
   } catch (err) {
+    if (err instanceof StokError) {
+      return NextResponse.json({ error: err.message }, { status: 400 })
+    }
     console.error('[POST /api/peminjaman]', err)
-    const msg = err instanceof Error ? err.message : 'Server error'
-    return NextResponse.json({ error: msg }, { status: 500 })
+    return NextResponse.json({ error: 'Server error' }, { status: 500 })
   }
 }

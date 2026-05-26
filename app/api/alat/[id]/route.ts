@@ -7,8 +7,12 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const { id } = await params
+  const numId = Number(id)
+  if (!Number.isInteger(numId) || numId <= 0)
+    return NextResponse.json({ error: 'ID tidak valid' }, { status: 400 })
+
   const alat = await prisma.alat.findUnique({
-    where: { id: parseInt(id) },
+    where: { id: numId },
     include: {
       peminjamanDetails: {
         where: { peminjaman: { status: { in: ['menunggu_verifikasi', 'dipinjam'] } } },
@@ -29,10 +33,14 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
   const { id } = await params
+  const numId = Number(id)
+  if (!Number.isInteger(numId) || numId <= 0)
+    return NextResponse.json({ error: 'ID tidak valid' }, { status: 400 })
+
   try {
     const body = await req.json()
     const alat = await prisma.alat.update({
-      where: { id: parseInt(id) },
+      where: { id: numId },
       data: {
         ...body,
         tanggalEos: body.tanggalEos ? new Date(body.tanggalEos) : null,
@@ -40,7 +48,8 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
       },
     })
     return NextResponse.json(alat)
-  } catch {
+  } catch (err) {
+    console.error('[PUT /api/alat/[id]]', err)
     return NextResponse.json({ error: 'Server error' }, { status: 500 })
   }
 }
@@ -51,17 +60,26 @@ export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ 
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
   const { id } = await params
-  const activeBorrows = await prisma.peminjamanDetail.count({
-    where: {
-      alatId: parseInt(id),
-      peminjaman: { status: { in: ['menunggu_verifikasi', 'dipinjam'] } },
-    },
-  })
+  const numId = Number(id)
+  if (!Number.isInteger(numId) || numId <= 0)
+    return NextResponse.json({ error: 'ID tidak valid' }, { status: 400 })
 
-  if (activeBorrows > 0) {
-    return NextResponse.json({ error: 'Alat masih dipinjam, tidak bisa dihapus' }, { status: 400 })
+  try {
+    const activeBorrows = await prisma.peminjamanDetail.count({
+      where: {
+        alatId: numId,
+        peminjaman: { status: { in: ['menunggu_verifikasi', 'dipinjam'] } },
+      },
+    })
+
+    if (activeBorrows > 0) {
+      return NextResponse.json({ error: 'Alat masih dipinjam, tidak bisa dihapus' }, { status: 400 })
+    }
+
+    await prisma.alat.delete({ where: { id: numId } })
+    return NextResponse.json({ success: true })
+  } catch (err) {
+    console.error('[DELETE /api/alat/[id]]', err)
+    return NextResponse.json({ error: 'Gagal menghapus alat' }, { status: 500 })
   }
-
-  await prisma.alat.delete({ where: { id: parseInt(id) } })
-  return NextResponse.json({ success: true })
 }

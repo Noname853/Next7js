@@ -9,20 +9,29 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
   const { id } = await params
+  const numId = Number(id)
+  if (!Number.isInteger(numId) || numId <= 0)
+    return NextResponse.json({ error: 'ID tidak valid' }, { status: 400 })
+
   try {
     const body = await req.json()
     const { name, email, role, kelas, kelompok, password } = body
+
+    if (role !== undefined && role !== 'admin' && role !== 'siswa') {
+      return NextResponse.json({ error: 'Role tidak valid' }, { status: 400 })
+    }
 
     const data: Record<string, unknown> = { name, email, role, kelas, kelompok }
     if (password) data.password = await bcrypt.hash(password, 10)
 
     const user = await prisma.user.update({
-      where: { id: parseInt(id) },
+      where: { id: numId },
       data,
       select: { id: true, name: true, email: true, role: true, kelas: true },
     })
     return NextResponse.json(user)
-  } catch {
+  } catch (err) {
+    console.error('[PUT /api/users/[id]]', err)
     return NextResponse.json({ error: 'Server error' }, { status: 500 })
   }
 }
@@ -33,16 +42,20 @@ export async function PATCH(_req: NextRequest, { params }: { params: Promise<{ i
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
   const { id } = await params
-  if (parseInt(id) === parseInt(session.user.id))
+  const numId = Number(id)
+  if (!Number.isInteger(numId) || numId <= 0)
+    return NextResponse.json({ error: 'ID tidak valid' }, { status: 400 })
+
+  if (numId === parseInt(session.user.id))
     return NextResponse.json({ error: 'Tidak bisa menonaktifkan akun sendiri' }, { status: 400 })
 
   try {
-    const user = await prisma.user.findUnique({ where: { id: parseInt(id) }, select: { isActive: true } })
+    const user = await prisma.user.findUnique({ where: { id: numId }, select: { isActive: true } })
     if (!user) return NextResponse.json({ error: 'User tidak ditemukan' }, { status: 404 })
 
     if (user.isActive) {
       const aktif = await prisma.peminjaman.count({
-        where: { userId: parseInt(id), status: { in: ['menunggu_verifikasi', 'dipinjam'] } },
+        where: { userId: numId, status: { in: ['menunggu_verifikasi', 'dipinjam'] } },
       })
       if (aktif > 0)
         return NextResponse.json(
@@ -52,12 +65,13 @@ export async function PATCH(_req: NextRequest, { params }: { params: Promise<{ i
     }
 
     const updated = await prisma.user.update({
-      where: { id: parseInt(id) },
+      where: { id: numId },
       data: { isActive: !user.isActive },
       select: { id: true, isActive: true },
     })
     return NextResponse.json(updated)
-  } catch {
+  } catch (err) {
+    console.error('[PATCH /api/users/[id]]', err)
     return NextResponse.json({ error: 'Gagal mengubah status user' }, { status: 500 })
   }
 }
@@ -68,16 +82,20 @@ export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ 
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
   const { id } = await params
-  if (parseInt(id) === parseInt(session.user.id))
+  const numId = Number(id)
+  if (!Number.isInteger(numId) || numId <= 0)
+    return NextResponse.json({ error: 'ID tidak valid' }, { status: 400 })
+
+  if (numId === parseInt(session.user.id))
     return NextResponse.json({ error: 'Tidak bisa menghapus akun sendiri' }, { status: 400 })
 
   try {
-    const user = await prisma.user.findUnique({ where: { id: parseInt(id) }, select: { isActive: true } })
+    const user = await prisma.user.findUnique({ where: { id: numId }, select: { isActive: true } })
     if (!user) return NextResponse.json({ error: 'User tidak ditemukan' }, { status: 404 })
     if (user.isActive)
       return NextResponse.json({ error: 'Nonaktifkan user terlebih dahulu sebelum menghapus permanen' }, { status: 400 })
 
-    const userId = parseInt(id)
+    const userId = numId
 
     await prisma.$transaction(async (tx) => {
       await tx.peminjaman.updateMany({ where: { verifiedBy: userId }, data: { verifiedBy: null } })
@@ -89,7 +107,8 @@ export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ 
     })
 
     return NextResponse.json({ success: true })
-  } catch {
+  } catch (err) {
+    console.error('[DELETE /api/users/[id]]', err)
     return NextResponse.json({ error: 'Gagal menghapus user' }, { status: 500 })
   }
 }

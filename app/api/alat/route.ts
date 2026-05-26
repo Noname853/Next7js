@@ -9,8 +9,8 @@ export async function GET(req: NextRequest) {
   const { searchParams } = req.nextUrl
   const search = searchParams.get('search') ?? ''
   const kategori = searchParams.get('kategori') ?? ''
-  const page = parseInt(searchParams.get('page') ?? '1')
-  const limit = parseInt(searchParams.get('limit') ?? '12')
+  const page = Math.max(1, parseInt(searchParams.get('page') ?? '1') || 1)
+  const limit = Math.min(100, Math.max(1, parseInt(searchParams.get('limit') ?? '12') || 12))
   const skip = (page - 1) * limit
 
   const where = {
@@ -81,7 +81,8 @@ export async function POST(req: NextRequest) {
     })
 
     return NextResponse.json(alat, { status: 201 })
-  } catch {
+  } catch (err) {
+    console.error('[POST /api/alat]', err)
     return NextResponse.json({ error: 'Server error' }, { status: 500 })
   }
 }

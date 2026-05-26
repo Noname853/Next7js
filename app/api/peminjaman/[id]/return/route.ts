@@ -8,22 +8,32 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
   const { id } = await params
+  const numId = Number(id)
+  if (!Number.isInteger(numId) || numId <= 0)
+    return NextResponse.json({ error: 'ID tidak valid' }, { status: 400 })
+
   const body = await req.json().catch(() => ({}))
-  const peminjaman = await prisma.peminjaman.findUnique({ where: { id: parseInt(id) } })
 
-  if (!peminjaman) return NextResponse.json({ error: 'Not found' }, { status: 404 })
-  if (peminjaman.status !== 'dipinjam')
-    return NextResponse.json({ error: 'Status tidak valid untuk pengembalian' }, { status: 400 })
+  try {
+    const peminjaman = await prisma.peminjaman.findUnique({ where: { id: numId } })
 
-  const updated = await prisma.peminjaman.update({
-    where: { id: parseInt(id) },
-    data: {
-      status: 'dikembalikan',
-      tanggalKembali: new Date(),
-      returnedBy: parseInt(session.user.id),
-      catatanPengembalian: body.catatan ?? null,
-    },
-  })
+    if (!peminjaman) return NextResponse.json({ error: 'Not found' }, { status: 404 })
+    if (peminjaman.status !== 'dipinjam')
+      return NextResponse.json({ error: 'Status tidak valid untuk pengembalian' }, { status: 400 })
 
-  return NextResponse.json(updated)
+    const updated = await prisma.peminjaman.update({
+      where: { id: numId },
+      data: {
+        status: 'dikembalikan',
+        tanggalKembali: new Date(),
+        returnedBy: parseInt(session.user.id),
+        catatanPengembalian: body.catatan ?? null,
+      },
+    })
+
+    return NextResponse.json(updated)
+  } catch (err) {
+    console.error('[PATCH /api/peminjaman/[id]/return]', err)
+    return NextResponse.json({ error: 'Server error' }, { status: 500 })
+  }
 }

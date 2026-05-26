@@ -11,8 +11,8 @@ export async function GET(req: NextRequest) {
   const { searchParams } = req.nextUrl
   const search = searchParams.get('search') ?? ''
   const showAll = searchParams.get('all') === 'true'
-  const page = parseInt(searchParams.get('page') ?? '1')
-  const limit = parseInt(searchParams.get('limit') ?? '10')
+  const page = Math.max(1, parseInt(searchParams.get('page') ?? '1') || 1)
+  const limit = Math.min(100, Math.max(1, parseInt(searchParams.get('limit') ?? '10') || 10))
   const skip = (page - 1) * limit
 
   const where = {
@@ -47,17 +47,23 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Name, email, dan password wajib' }, { status: 400 })
     }
 
+    const finalRole = role ?? 'siswa'
+    if (finalRole !== 'admin' && finalRole !== 'siswa') {
+      return NextResponse.json({ error: 'Role tidak valid' }, { status: 400 })
+    }
+
     const existing = await prisma.user.findUnique({ where: { email } })
     if (existing) return NextResponse.json({ error: 'Email sudah digunakan' }, { status: 400 })
 
     const hashed = await bcrypt.hash(password, 10)
     const user = await prisma.user.create({
-      data: { name, email, password: hashed, role: role ?? 'siswa', kelas: kelas ?? null, kelompok: kelompok ?? null },
+      data: { name, email, password: hashed, role: finalRole, kelas: kelas ?? null, kelompok: kelompok ?? null },
       select: { id: true, name: true, email: true, role: true, kelas: true },
     })
 
     return NextResponse.json(user, { status: 201 })
-  } catch {
+  } catch (err) {
+    console.error('[POST /api/users]', err)
     return NextResponse.json({ error: 'Server error' }, { status: 500 })
   }
 }

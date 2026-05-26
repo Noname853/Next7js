@@ -7,8 +7,12 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const { id } = await params
+  const numId = Number(id)
+  if (!Number.isInteger(numId) || numId <= 0)
+    return NextResponse.json({ error: 'ID tidak valid' }, { status: 400 })
+
   const peminjaman = await prisma.peminjaman.findUnique({
-    where: { id: parseInt(id) },
+    where: { id: numId },
     include: {
       user: { select: { id: true, name: true, email: true, kelas: true } },
       details: {
