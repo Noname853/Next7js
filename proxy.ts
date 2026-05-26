@@ -1,21 +1,26 @@
+import { getToken } from 'next-auth/jwt'
 import { NextRequest, NextResponse } from 'next/server'
 
 const protectedPaths = ['/dashboard', '/alat', '/peminjaman', '/users', '/laporan']
 const authPaths = ['/login', '/register']
 
-export function proxy(req: NextRequest) {
+export async function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl
   const isProtected = protectedPaths.some((p) => pathname === p || pathname.startsWith(p + '/'))
   const isAuth = authPaths.some((p) => pathname.startsWith(p))
 
-  // Check for NextAuth session cookie (name can vary)
-  const sessionToken =
-    req.cookies.get('authjs.session-token')?.value ||
-    req.cookies.get('__Secure-authjs.session-token')?.value ||
-    req.cookies.get('next-auth.session-token')?.value ||
-    req.cookies.get('__Secure-next-auth.session-token')?.value
+  if (!isProtected && !isAuth) return NextResponse.next()
 
-  const isLoggedIn = !!sessionToken
+  // Decode the session token (verify validity), not just check cookie
+  // presence. A stale or tampered cookie decodes to null and is treated as
+  // logged-out, so it can't bounce the user between /login and /dashboard.
+  const secureCookie = req.cookies.has('__Secure-authjs.session-token')
+  const token = await getToken({
+    req,
+    secret: process.env.AUTH_SECRET,
+    secureCookie,
+  })
+  const isLoggedIn = !!token
 
   if (isProtected && !isLoggedIn) {
     return NextResponse.redirect(new URL('/login', req.url))
