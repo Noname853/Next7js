@@ -1,6 +1,7 @@
 import NextAuth from 'next-auth'
 import Credentials from 'next-auth/providers/credentials'
 import { prisma } from '@/lib/prisma'
+import { checkRateLimit, clientIp } from '@/lib/rate-limit'
 import bcrypt from 'bcryptjs'
 import { z } from 'zod'
 
@@ -18,7 +19,15 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         email: { label: 'Email', type: 'email' },
         password: { label: 'Password', type: 'password' },
       },
-      async authorize(credentials) {
+      async authorize(credentials, request) {
+        // Safety net that also covers direct calls to the NextAuth endpoint
+        // (the login form's server action has its own limiter). Skipped when
+        // no client IP is available so a shared bucket can't lock everyone out.
+        const ip = clientIp(request.headers)
+        if (ip !== 'unknown' && !checkRateLimit(`auth:${ip}`, 10, 5 * 60_000)) {
+          return null
+        }
+
         const parsed = z
           .object({
             email: z.string().email(),
