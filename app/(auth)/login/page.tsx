@@ -1,6 +1,8 @@
 import { signIn } from '@/lib/auth'
 import { AuthError } from 'next-auth'
 import { redirect } from 'next/navigation'
+import { headers } from 'next/headers'
+import { checkRateLimit, clientIp } from '@/lib/rate-limit'
 import Link from 'next/link'
 
 export default async function LoginPage({
@@ -12,6 +14,10 @@ export default async function LoginPage({
 
   async function loginAction(formData: FormData) {
     'use server'
+    const ip = clientIp(await headers())
+    if (!checkRateLimit(`login:${ip}`, 10, 5 * 60_000)) {
+      redirect('/login?error=ratelimit')
+    }
     try {
       await signIn('credentials', {
         email: formData.get('email') as string,
@@ -61,7 +67,9 @@ export default async function LoginPage({
 
         {sp.error && (
           <p className="rounded-lg border border-red-500/20 bg-red-500/10 px-3 py-2 text-sm text-red-400">
-            Email atau password salah
+            {sp.error === 'ratelimit'
+              ? 'Terlalu banyak percobaan login. Coba lagi dalam beberapa menit.'
+              : 'Email atau password salah'}
           </p>
         )}
 

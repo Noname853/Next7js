@@ -11,11 +11,14 @@ import { DeleteAlatButton } from './DeleteAlatButton'
 
 export default async function AlatDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
+  const numId = Number(id)
+  if (!Number.isInteger(numId) || numId <= 0) notFound()
+
   const session = await auth()
   const isAdmin = session?.user.role === 'admin'
 
   const alat = await prisma.alat.findUnique({
-    where: { id: parseInt(id) },
+    where: { id: numId },
     include: {
       peminjamanDetails: {
         where: { peminjaman: { status: { in: ['menunggu_verifikasi', 'dipinjam'] } } },

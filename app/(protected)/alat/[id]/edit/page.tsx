@@ -10,7 +10,10 @@ export default async function EditAlatPage({ params }: { params: Promise<{ id: s
   if (session?.user.role !== 'admin') redirect('/alat')
 
   const { id } = await params
-  const alat = await prisma.alat.findUnique({ where: { id: parseInt(id) } })
+  const numId = Number(id)
+  if (!Number.isInteger(numId) || numId <= 0) notFound()
+
+  const alat = await prisma.alat.findUnique({ where: { id: numId } })
   if (!alat) notFound()
 
   return (

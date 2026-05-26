@@ -14,7 +14,13 @@ export default async function ProfilPage() {
   })
   if (!user) redirect('/login')
 
-  const anggota: string[] = user.anggotaKelompok ? JSON.parse(user.anggotaKelompok) : []
+  let anggota: string[] = []
+  if (user.anggotaKelompok) {
+    try {
+      const parsed = JSON.parse(user.anggotaKelompok)
+      if (Array.isArray(parsed)) anggota = parsed
+    } catch {}
+  }
 
   return (
     <div className="space-y-6">

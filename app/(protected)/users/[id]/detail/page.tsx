@@ -10,13 +10,22 @@ export default async function UserDetailPage({ params }: { params: Promise<{ id:
   if (session?.user.role !== 'admin') redirect('/dashboard')
 
   const { id } = await params
+  const numId = Number(id)
+  if (!Number.isInteger(numId) || numId <= 0) notFound()
+
   const user = await prisma.user.findUnique({
-    where: { id: parseInt(id) },
+    where: { id: numId },
     select: { name: true, email: true, kelas: true, role: true, kelompok: true, anggotaKelompok: true, isActive: true },
   })
   if (!user) notFound()
 
-  const anggota: string[] = user.anggotaKelompok ? JSON.parse(user.anggotaKelompok) : []
+  let anggota: string[] = []
+  if (user.anggotaKelompok) {
+    try {
+      const parsed = JSON.parse(user.anggotaKelompok)
+      if (Array.isArray(parsed)) anggota = parsed
+    } catch {}
+  }
 
   return (
     <div className="space-y-6">

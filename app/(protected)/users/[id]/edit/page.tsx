@@ -10,8 +10,11 @@ export default async function EditUserPage({ params }: { params: Promise<{ id: s
   if (session?.user.role !== 'admin') redirect('/dashboard')
 
   const { id } = await params
+  const numId = Number(id)
+  if (!Number.isInteger(numId) || numId <= 0) notFound()
+
   const user = await prisma.user.findUnique({
-    where: { id: parseInt(id) },
+    where: { id: numId },
     select: { id: true, name: true, email: true, role: true, kelas: true, kelompok: true },
   })
   if (!user) notFound()

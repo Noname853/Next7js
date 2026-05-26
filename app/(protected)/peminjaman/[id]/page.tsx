@@ -10,12 +10,15 @@ import { PeminjamanActions } from './PeminjamanActions'
 
 export default async function PeminjamanDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
+  const numId = Number(id)
+  if (!Number.isInteger(numId) || numId <= 0) notFound()
+
   const session = await auth()
   const isAdmin = session?.user.role === 'admin'
   const currentUserId = parseInt(session?.user.id ?? '0')
 
   const peminjaman = await prisma.peminjaman.findUnique({
-    where: { id: parseInt(id) },
+    where: { id: numId },
     include: {
       user: { select: { id: true, name: true, email: true, kelas: true } },
       details: {

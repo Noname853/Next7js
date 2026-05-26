@@ -1,5 +1,7 @@
 import { redirect } from 'next/navigation'
+import { headers } from 'next/headers'
 import { prisma } from '@/lib/prisma'
+import { checkRateLimit, clientIp } from '@/lib/rate-limit'
 import bcrypt from 'bcryptjs'
 import Link from 'next/link'
 
@@ -12,6 +14,11 @@ export default async function RegisterPage({
 
   async function registerAction(formData: FormData) {
     'use server'
+    const ip = clientIp(await headers())
+    if (!checkRateLimit(`register:${ip}`, 5, 10 * 60_000)) {
+      redirect('/register?error=ratelimit')
+    }
+
     const name = (formData.get('name') as string).trim()
     const email = (formData.get('email') as string).trim().toLowerCase()
     const password = formData.get('password') as string
@@ -30,9 +37,11 @@ export default async function RegisterPage({
   const errorMsg =
     sp.error === 'email-taken'
       ? 'Email sudah terdaftar'
-      : sp.error
-        ? 'Gagal mendaftar, coba lagi'
-        : null
+      : sp.error === 'ratelimit'
+        ? 'Terlalu banyak percobaan. Coba lagi dalam beberapa menit.'
+        : sp.error
+          ? 'Gagal mendaftar, coba lagi'
+          : null
 
   return (
     <div className="glass-card w-full max-w-sm p-8">
